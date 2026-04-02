@@ -1,0 +1,2066 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 角色對話系統</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --bg-gradient: linear-gradient(135deg, #a8b5c8 0%, #b8a8c8 100%);
+            --primary-color: #8e9bae;
+            --primary-hover: #7a8699;
+            --bg-light: #f5f6f7;
+            --bg-white: #fefefe;
+            --border-color: #d8dce0;
+            --text-dark: #3a3f47;
+            --text-medium: #6b7280;
+            --user-bubble: #d4dce8;
+            --assistant-bubble: #e8e4d4;
+            --system-bubble: #f5efd4;
+            --danger-color: #c98989;
+            --success-color: #89b89f;
+            --warning-color: #c9b589;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+            background: var(--bg-gradient);
+            min-height: 100vh;
+            color: var(--text-dark);
+        }
+        
+        body.font-small { font-size: 14px; }
+        body.font-medium { font-size: 16px; }
+        body.font-large { font-size: 18px; }
+        
+        .app-container {
+            display: flex;
+            height: 100vh;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .sidebar {
+            width: 280px;
+            background: var(--bg-white);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            transition: margin-left 0.3s;
+        }
+        
+        .sidebar.collapsed {
+            margin-left: -280px;
+        }
+        
+        .sidebar-header {
+            padding: 20px;
+            background: var(--bg-gradient);
+            color: white;
+            text-align: center;
+        }
+        
+        .sidebar-header h1 {
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+        
+        .new-chat-btn {
+            width: 100%;
+            padding: 12px;
+            margin: 15px 0;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .new-chat-btn:hover {
+            background: var(--primary-hover);
+        }
+        
+        .chat-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+        
+        .sidebar-footer {
+            padding: 15px;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .settings-link {
+            width: 100%;
+            padding: 10px;
+            background: var(--bg-light);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            font-weight: 600;
+            color: var(--text-dark);
+            transition: all 0.3s;
+        }
+        
+        .settings-link:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .chat-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: var(--bg-light);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+        
+        .chat-item:hover {
+            background: #e8eaed;
+        }
+        
+        .chat-item.active {
+            background: var(--user-bubble);
+            border-color: var(--primary-color);
+        }
+        
+        .chat-item-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            font-size: 14px;
+        }
+        
+        .chat-item-meta {
+            font-size: 12px;
+            color: var(--text-medium);
+        }
+        
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-white);
+            position: relative;
+        }
+        
+        .toggle-sidebar {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            padding: 8px 12px;
+            background: var(--bg-light);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 18px;
+        }
+        
+        .content-header {
+            padding: 20px 20px 10px 70px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-light);
+        }
+        
+        .content-header h2 {
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+        
+        .content-header .meta {
+            font-size: 13px;
+            color: var(--text-medium);
+        }
+        
+        .tabs {
+            display: flex;
+            background: var(--bg-light);
+            border-bottom: 2px solid var(--border-color);
+            padding: 0 20px;
+        }
+        
+        .tab {
+            padding: 12px 20px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-weight: 600;
+            color: var(--text-medium);
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        
+        .tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+        
+        .tab-content {
+            display: none;
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        .tab-content.active {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .message-group {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        
+        .message-group.user {
+            flex-direction: row-reverse;
+        }
+        
+        .message {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            line-height: 1.6;
+            word-wrap: break-word;
+            position: relative;
+        }
+        
+        .message.user {
+            background: var(--user-bubble);
+            margin-left: auto;
+        }
+        
+        .message.assistant {
+            background: var(--assistant-bubble);
+        }
+        
+        .message.system {
+            background: var(--system-bubble);
+            max-width: 100%;
+            text-align: center;
+            font-size: 13px;
+            color: var(--warning-color);
+        }
+        
+        .message-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        
+        .message-actions button {
+            padding: 4px 10px;
+            font-size: 12px;
+            border: 1px solid var(--border-color);
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .message-actions button:hover {
+            background: var(--bg-light);
+        }
+        
+        .input-area {
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+            background: var(--bg-light);
+        }
+        
+        .input-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .input-container input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: inherit;
+            background: white;
+        }
+        
+        .input-container button {
+            padding: 12px 24px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .input-container button:hover {
+            background: var(--primary-hover);
+        }
+        
+        .input-container button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .settings-container {
+            padding: 30px;
+            max-width: 800px;
+        }
+        
+        .section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .section h3 {
+            margin-bottom: 15px;
+            color: var(--primary-color);
+            font-size: 18px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: var(--text-dark);
+            font-size: 14px;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: inherit;
+            font-family: inherit;
+            background: white;
+        }
+        
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-top: 10px;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        
+        .btn-secondary {
+            background: var(--text-medium);
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6169;
+        }
+        
+        .btn-danger {
+            background: var(--danger-color);
+        }
+        
+        .btn-danger:hover {
+            background: #b87777;
+        }
+        
+        .btn-success {
+            background: var(--success-color);
+        }
+        
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+        
+        .item-list {
+            margin-top: 15px;
+        }
+        
+        .item {
+            background: var(--bg-light);
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .item-title {
+            font-weight: 600;
+            font-size: 15px;
+        }
+        
+        .item-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .item-content {
+            font-size: 13px;
+            color: var(--text-medium);
+            line-height: 1.5;
+        }
+        
+        .example-dialogue {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 2px solid var(--primary-color);
+            border-left-width: 5px;
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .slider-container input[type="range"] {
+            flex: 1;
+        }
+        
+        .slider-value {
+            min-width: 60px;
+            text-align: right;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h3 {
+            font-size: 20px;
+            color: var(--primary-color);
+        }
+        
+        .status-bar {
+            padding: 10px 20px;
+            text-align: center;
+            font-size: 13px;
+            background: var(--bg-light);
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .status-bar.success { background: #e8f5e9; color: var(--success-color); }
+        .status-bar.error { background: #ffebee; color: var(--danger-color); }
+        .status-bar.warning { background: #fff3e0; color: var(--warning-color); }
+        .status-bar.info { background: #e3f2fd; color: var(--primary-color); }
+        
+        #testResult {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        #testResult.success {
+            background: #e8f5e9;
+            color: var(--success-color);
+            border: 1px solid var(--success-color);
+        }
+        
+        #testResult.error {
+            background: #ffebee;
+            color: var(--danger-color);
+            border: 1px solid var(--danger-color);
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                position: absolute;
+                height: 100%;
+                z-index: 100;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .message {
+                max-width: 85%;
+            }
+        }
+    </style>
+</head>
+<body class="font-medium">
+    <div class="app-container">
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h1>🎭 AI 對話系統</h1>
+                <p style="font-size: 13px; opacity: 0.9;">多角色 · 多 API</p>
+            </div>
+            
+            <div style="padding: 0 15px;">
+                <button class="new-chat-btn" id="newChatBtn">➕ 新對話</button>
+            </div>
+            
+            <div class="chat-list" id="chatList"></div>
+            
+            <div class="sidebar-footer">
+                <button class="settings-link" id="settingsBtn">⚙️ 設定</button>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <button class="toggle-sidebar" id="toggleSidebarBtn">☰</button>
+            
+            <div id="welcomeScreen" style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; color: var(--text-medium);">
+                <div style="text-align: center; max-width: 500px; padding: 40px;">
+                    <h2 style="font-size: 32px; margin-bottom: 20px; color: var(--primary-color);">🎭</h2>
+                    <h3 style="margin-bottom: 15px;">歡迎使用 AI 對話系統</h3>
+                    <p style="line-height: 1.6; margin-bottom: 25px;">
+                        支援多個 AI 角色、多組使用者資訊<br>
+                        開始前請先設定 API 和建立角色
+                    </p>
+                    <button class="btn" id="welcomeSettingsBtn">前往設定</button>
+                    <button class="btn btn-secondary" id="welcomeNewChatBtn">開始新對話</button>
+                </div>
+            </div>
+            
+            <div id="chatScreen" style="display: none; flex-direction: column; flex: 1;">
+                <div class="content-header">
+                    <h2 id="currentChatTitle">新對話</h2>
+                    <div class="meta" id="currentChatMeta">角色：未設定 | 使用者：未設定</div>
+                </div>
+                
+                <div class="status-bar info" id="statusBar">準備就緒</div>
+                
+                <div class="chat-container" id="chatContainer"></div>
+                
+                <div class="input-area">
+                    <div class="input-container">
+                        <input type="text" id="messageInput" placeholder="輸入訊息..." disabled>
+                        <button id="sendButton" disabled>發送</button>
+                    </div>
+                    <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-small btn-secondary" id="editTitleBtn">✏️ 重新命名</button>
+                        <button class="btn btn-small btn-danger" id="deleteChatBtn">🗑️ 刪除對話</button>
+                        <button class="btn btn-small" id="exportChatBtn">💾 匯出</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="settingsScreen" style="display: none; flex-direction: column; flex: 1; overflow-y: auto;">
+                <div class="tabs">
+                    <button class="tab active" data-tab="api">🔧 API 設定</button>
+                    <button class="tab" data-tab="characters">🎭 角色管理</button>
+                    <button class="tab" data-tab="users">👤 使用者資訊</button>
+                    <button class="tab" data-tab="general">⚙️ 一般設定</button>
+                </div>
+                
+                <div id="apiSettings" class="tab-content active settings-container">
+                    <div class="section">
+                        <h3>API 設定</h3>
+                        
+                        <div class="form-group">
+                            <label>API 提供商</label>
+                            <select id="apiProvider">
+                                <option value="openai">OpenAI</option>
+                                <option value="anthropic">Anthropic (Claude)</option>
+                                <option value="google">Google (Gemini)</option>
+                                <option value="openrouter">OpenRouter</option>
+                                <option value="custom">自訂</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>API Key</label>
+                            <input type="password" id="apiKey" placeholder="輸入你的 API Key">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>模型名稱</label>
+                            <input type="text" id="apiModel" placeholder="例如：gpt-4o, claude-sonnet-4-20250514">
+                            <small style="color: var(--text-medium); font-size: 12px; display: block; margin-top: 5px;">
+                                請填寫完整的模型名稱
+                            </small>
+                        </div>
+                        
+                        <div class="form-group" id="customEndpointGroup" style="display: none;">
+                            <label>API Endpoint</label>
+                            <input type="text" id="customEndpoint" placeholder="https://api.example.com/v1/chat/completions">
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Temperature</label>
+                                <div class="slider-container">
+                                    <input type="range" id="temperature" min="0" max="2" step="0.1" value="1">
+                                    <span class="slider-value" id="tempValue">1.0</span>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Max Tokens</label>
+                                <div class="slider-container">
+                                    <input type="range" id="maxTokens" min="100" max="4000" step="100" value="1000">
+                                    <span class="slider-value" id="tokensValue">1000</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Top P</label>
+                                <div class="slider-container">
+                                    <input type="range" id="topP" min="0" max="1" step="0.05" value="1">
+                                    <span class="slider-value" id="topPValue">1.0</span>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Context Token 限制</label>
+                                <input type="number" id="contextLimit" value="8000" min="1000" max="128000" step="1000">
+                            </div>
+                        </div>
+                        
+                        <button class="btn" id="saveAPIBtn">💾 儲存 API 設定</button>
+                        <button class="btn btn-success" id="testAPIBtn">🧪 測試 API 連接</button>
+                        
+                        <div id="testResult" style="display: none;"></div>
+                    </div>
+                    
+                    <div class="section">
+                        <h3>TTS 設定</h3>
+                        
+                        <div class="form-group">
+                            <label>TTS 模式</label>
+                            <select id="ttsMode">
+                                <option value="system">系統 TTS (免費)</option>
+                                <option value="openai">OpenAI TTS (付費)</option>
+                            </select>
+                        </div>
+                        
+                        <div id="openaiTTSGroup" style="display: none;">
+                            <div class="form-group">
+                                <label>OpenAI TTS API Key</label>
+                                <input type="password" id="ttsApiKey" placeholder="留空則使用主 API Key">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>聲音</label>
+                                <select id="ttsVoice">
+                                    <option value="alloy">Alloy</option>
+                                    <option value="echo">Echo</option>
+                                    <option value="fable">Fable</option>
+                                    <option value="onyx">Onyx</option>
+                                    <option value="nova">Nova</option>
+                                    <option value="shimmer">Shimmer</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <button class="btn" id="saveTTSBtn">💾 儲存 TTS 設定</button>
+                    </div>
+                </div>
+                
+                <div id="charactersSettings" class="tab-content settings-container">
+                    <div class="section">
+                        <h3>角色管理</h3>
+                        <p style="color: var(--text-medium); margin-bottom: 15px;">建立和管理 AI 角色</p>
+                        
+                        <button class="btn" id="addCharacterBtn">➕ 新增角色</button>
+                        
+                        <div class="item-list" id="charactersList"></div>
+                    </div>
+                </div>
+                
+                <div id="usersSettings" class="tab-content settings-container">
+                    <div class="section">
+                        <h3>使用者資訊管理</h3>
+                        <p style="color: var(--text-medium); margin-bottom: 15px;">建立多組使用者資訊</p>
+                        
+                        <button class="btn" id="addUserBtn">➕ 新增使用者資訊</button>
+                        
+                        <div class="item-list" id="usersList"></div>
+                    </div>
+                </div>
+                
+                <div id="generalSettings" class="tab-content settings-container">
+                    <div class="section">
+                        <h3>介面設定</h3>
+                        
+                        <div class="form-group">
+                            <label>字體大小</label>
+                            <select id="fontSize">
+                                <option value="small">小</option>
+                                <option value="medium" selected>中</option>
+                                <option value="large">大</option>
+                            </select>
+                        </div>
+                        
+                        <button class="btn" id="saveGeneralBtn">💾 儲存設定</button>
+                    </div>
+                    
+                    <div class="section">
+                        <h3>資料管理</h3>
+                        
+                        <button class="btn" id="importChatBtn">📂 匯入對話</button>
+                        <button class="btn btn-danger" id="clearDataBtn">🗑️ 清除所有資料</button>
+                        
+                        <input type="file" id="importFile" accept=".json" style="display: none;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="newChatModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>開始新對話</h3>
+            </div>
+            
+            <div class="form-group">
+                <label>選擇角色</label>
+                <select id="newChatCharacter">
+                    <option value="">-- 請選擇角色 --</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>選擇使用者資訊</label>
+                <select id="newChatUser">
+                    <option value="">-- 請選擇使用者資訊 --</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>對話標題（可選）</label>
+                <input type="text" id="newChatTitle" placeholder="留空則自動生成">
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn" id="createChatBtn">開始對話</button>
+                <button class="btn btn-secondary" id="cancelNewChatBtn">取消</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="characterModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="characterModalTitle">新增角色</h3>
+            </div>
+            
+            <input type="hidden" id="editCharacterId">
+            
+            <div class="form-group">
+                <label>角色名稱</label>
+                <input type="text" id="charName" placeholder="例如：4o、Peter">
+            </div>
+            
+            <div class="form-group">
+                <label>角色背景</label>
+                <textarea id="charBackground" placeholder="角色的背景故事..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>個性特質</label>
+                <textarea id="charPersonality" placeholder="描述角色的個性..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>說話風格</label>
+                <textarea id="charStyle" placeholder="例如：輕鬆幽默、多用 emoji..."></textarea>
+            </div>
+            
+            <h4 style="margin: 20px 0 10px; color: var(--primary-color);">Example Dialogues</h4>
+            <p style="font-size: 13px; color: var(--text-medium); margin-bottom: 15px;">
+                這些範例對話會讓 AI 學習說話風格，建議 3-5 組
+            </p>
+            
+            <div id="examplesContainer"></div>
+            
+            <button class="btn btn-small" id="addExampleBtn">➕ 新增範例</button>
+            
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn" id="saveCharacterBtn">💾 儲存</button>
+                <button class="btn btn-secondary" id="cancelCharacterBtn">取消</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="userModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="userModalTitle">新增使用者資訊</h3>
+            </div>
+            
+            <input type="hidden" id="editUserId">
+            
+            <div class="form-group">
+                <label>資訊名稱</label>
+                <input type="text" id="userName" placeholder="例如：真實 Miya、故事版 Miya">
+            </div>
+            
+            <div class="form-group">
+                <label>背景描述</label>
+                <textarea id="userBackground" placeholder="關於這個使用者的背景資訊..." style="min-height: 150px;"></textarea>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn" id="saveUserBtn">💾 儲存</button>
+                <button class="btn btn-secondary" id="cancelUserBtn">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let appState = {
+            chats: [],
+            characters: [],
+            users: [],
+            currentChatId: null,
+            apiConfig: {
+                provider: 'openai',
+                apiKey: '',
+                model: 'gpt-4o',
+                endpoint: '',
+                temperature: 1.0,
+                maxTokens: 1000,
+                topP: 1.0,
+                contextLimit: 8000
+            },
+            ttsConfig: {
+                mode: 'system',
+                voice: 'alloy',
+                apiKey: ''
+            },
+            generalSettings: {
+                fontSize: 'medium'
+            }
+        };
+        
+        window.onload = function() {
+            loadFromStorage();
+            initializeEventListeners();
+            updateSliderValues();
+            renderChatList();
+            renderCharactersList();
+            renderUsersList();
+            updateAPIConfig();
+            updateTTSConfig();
+            updateNewChatSelects();
+        };
+        
+        function initializeEventListeners() {
+            // 側邊欄
+            document.getElementById('toggleSidebarBtn').addEventListener('click', toggleSidebar);
+            document.getElementById('newChatBtn').addEventListener('click', showNewChatModal);
+            document.getElementById('settingsBtn').addEventListener('click', () => switchMainTab('settings'));
+            
+            // 歡迎頁面
+            document.getElementById('welcomeSettingsBtn').addEventListener('click', () => switchMainTab('settings'));
+            document.getElementById('welcomeNewChatBtn').addEventListener('click', showNewChatModal);
+            
+            // 對話頁面
+            document.getElementById('messageInput').addEventListener('keypress', handleMessageKeypress);
+            document.getElementById('sendButton').addEventListener('click', sendMessage);
+            document.getElementById('editTitleBtn').addEventListener('click', editChatTitle);
+            document.getElementById('deleteChatBtn').addEventListener('click', deleteCurrentChat);
+            document.getElementById('exportChatBtn').addEventListener('click', exportChat);
+            
+            // API 設定
+            document.getElementById('apiProvider').addEventListener('change', updateAPIConfig);
+            document.getElementById('saveAPIBtn').addEventListener('click', saveAPIConfig);
+            document.getElementById('testAPIBtn').addEventListener('click', testAPIConnection);
+            
+            // TTS 設定
+            document.getElementById('ttsMode').addEventListener('change', updateTTSConfig);
+            document.getElementById('saveTTSBtn').addEventListener('click', saveTTSConfig);
+            
+            // 角色管理
+            document.getElementById('addCharacterBtn').addEventListener('click', () => showCharacterModal());
+            document.getElementById('saveCharacterBtn').addEventListener('click', saveCharacter);
+            document.getElementById('cancelCharacterBtn').addEventListener('click', () => closeModal('characterModal'));
+            document.getElementById('addExampleBtn').addEventListener('click', addExample);
+            
+            // 使用者管理
+            document.getElementById('addUserBtn').addEventListener('click', () => showUserModal());
+            document.getElementById('saveUserBtn').addEventListener('click', saveUser);
+            document.getElementById('cancelUserBtn').addEventListener('click', () => closeModal('userModal'));
+            
+            // 一般設定
+            document.getElementById('fontSize').addEventListener('change', changeFontSize);
+            document.getElementById('saveGeneralBtn').addEventListener('click', saveGeneralSettings);
+            document.getElementById('importChatBtn').addEventListener('click', () => document.getElementById('importFile').click());
+            document.getElementById('importFile').addEventListener('change', handleImport);
+            document.getElementById('clearDataBtn').addEventListener('click', clearAllData);
+            
+            // 新對話 Modal
+            document.getElementById('createChatBtn').addEventListener('click', createNewChat);
+            document.getElementById('cancelNewChatBtn').addEventListener('click', () => closeModal('newChatModal'));
+            
+            // 設定頁籤
+            document.querySelectorAll('.tabs .tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    switchSettingsTab(this.dataset.tab);
+                });
+            });
+            
+            // Modal 外部點擊關閉
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.classList.remove('active');
+                    }
+                });
+            });
+        }
+        
+        function handleMessageKeypress(e) {
+            if (e.key === 'Enter' && !e.shiftKey && !document.getElementById('sendButton').disabled) {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+        
+        function saveToStorage() {
+            localStorage.setItem('appState', JSON.stringify(appState));
+        }
+        
+        function loadFromStorage() {
+            const saved = localStorage.getItem('appState');
+            if (saved) {
+                const loaded = JSON.parse(saved);
+                appState = { ...appState, ...loaded };
+                
+                document.getElementById('apiProvider').value = appState.apiConfig.provider;
+                document.getElementById('apiKey').value = appState.apiConfig.apiKey;
+                document.getElementById('apiModel').value = appState.apiConfig.model;
+                document.getElementById('temperature').value = appState.apiConfig.temperature;
+                document.getElementById('maxTokens').value = appState.apiConfig.maxTokens;
+                document.getElementById('topP').value = appState.apiConfig.topP;
+                document.getElementById('contextLimit').value = appState.apiConfig.contextLimit;
+                document.getElementById('tempValue').textContent = appState.apiConfig.temperature;
+                document.getElementById('tokensValue').textContent = appState.apiConfig.maxTokens;
+                document.getElementById('topPValue').textContent = appState.apiConfig.topP;
+                document.getElementById('ttsMode').value = appState.ttsConfig.mode;
+                document.getElementById('ttsVoice').value = appState.ttsConfig.voice;
+                document.getElementById('ttsApiKey').value = appState.ttsConfig.apiKey || '';
+                document.getElementById('fontSize').value = appState.generalSettings.fontSize;
+                document.body.className = `font-${appState.generalSettings.fontSize}`;
+            }
+        }
+        
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+        }
+        
+        function switchMainTab(tab) {
+            document.getElementById('welcomeScreen').style.display = 'none';
+            document.getElementById('chatScreen').style.display = 'none';
+            document.getElementById('settingsScreen').style.display = 'none';
+            
+            if (tab === 'chat') {
+                document.getElementById('chatScreen').style.display = 'flex';
+            } else if (tab === 'settings') {
+                document.getElementById('settingsScreen').style.display = 'flex';
+            } else {
+                document.getElementById('welcomeScreen').style.display = 'flex';
+            }
+        }
+        
+        function switchSettingsTab(tab) {
+            document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('#settingsScreen .tab-content').forEach(t => t.classList.remove('active'));
+            
+            document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
+            document.getElementById(tab + 'Settings').classList.add('active');
+        }
+        
+        function updateAPIConfig() {
+            const provider = document.getElementById('apiProvider').value;
+            document.getElementById('customEndpointGroup').style.display = provider === 'custom' ? 'block' : 'none';
+        }
+        
+        function updateSliderValues() {
+            document.getElementById('temperature').oninput = function() {
+                document.getElementById('tempValue').textContent = this.value;
+            };
+            document.getElementById('maxTokens').oninput = function() {
+                document.getElementById('tokensValue').textContent = this.value;
+            };
+            document.getElementById('topP').oninput = function() {
+                document.getElementById('topPValue').textContent = this.value;
+            };
+        }
+        
+        function saveAPIConfig() {
+            appState.apiConfig = {
+                provider: document.getElementById('apiProvider').value,
+                apiKey: document.getElementById('apiKey').value,
+                model: document.getElementById('apiModel').value,
+                endpoint: document.getElementById('customEndpoint').value,
+                temperature: parseFloat(document.getElementById('temperature').value),
+                maxTokens: parseInt(document.getElementById('maxTokens').value),
+                topP: parseFloat(document.getElementById('topP').value),
+                contextLimit: parseInt(document.getElementById('contextLimit').value)
+            };
+            saveToStorage();
+            showStatus('✅ API 設定已儲存', 'success');
+        }
+        
+        async function testAPIConnection() {
+            const testBtn = document.getElementById('testAPIBtn');
+            const testResult = document.getElementById('testResult');
+            
+            testBtn.disabled = true;
+            testBtn.textContent = '🧪 測試中...';
+            testResult.style.display = 'block';
+            testResult.className = '';
+            testResult.textContent = '正在測試 API 連接...';
+            
+            try {
+                const config = appState.apiConfig;
+                
+                if (!config.apiKey) {
+                    throw new Error('請先輸入 API Key');
+                }
+                
+                if (!config.model) {
+                    throw new Error('請先輸入模型名稱');
+                }
+                
+                let endpoint, headers, body;
+                
+                switch(config.provider) {
+                    case 'openai':
+                        endpoint = 'https://api.openai.com/v1/chat/completions';
+                        headers = {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${config.apiKey}`
+                        };
+                        body = {
+                            model: config.model,
+                            messages: [{ role: 'user', content: 'Hi' }],
+                            max_tokens: 10
+                        };
+                        break;
+                        
+                    case 'anthropic':
+                        endpoint = 'https://api.anthropic.com/v1/messages';
+                        headers = {
+                            'Content-Type': 'application/json',
+                            'x-api-key': config.apiKey,
+                            'anthropic-version': '2023-06-01'
+                        };
+                        body = {
+                            model: config.model,
+                            max_tokens: 10,
+                            messages: [{ role: 'user', content: 'Hi' }]
+                        };
+                        break;
+                        
+                    case 'google':
+                        endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${config.apiKey}`;
+                        headers = { 'Content-Type': 'application/json' };
+                        body = {
+                            contents: [{ role: 'user', parts: [{ text: 'Hi' }] }]
+                        };
+                        break;
+                        
+                    case 'openrouter':
+                        endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+                        headers = {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${config.apiKey}`
+                        };
+                        body = {
+                            model: config.model,
+                            messages: [{ role: 'user', content: 'Hi' }],
+                            max_tokens: 10
+                        };
+                        break;
+                        
+                    default:
+                        throw new Error('不支援的 API 提供商');
+                }
+                
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(body)
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(`API 回應錯誤 (${response.status}): ${JSON.stringify(data, null, 2)}`);
+                }
+                
+                testResult.className = 'success';
+                testResult.textContent = `✅ 測試成功！\n\nAPI 提供商: ${config.provider}\n模型: ${config.model}\n\n測試回應:\n${JSON.stringify(data, null, 2).substring(0, 500)}...`;
+                
+            } catch (error) {
+                testResult.className = 'error';
+                testResult.textContent = `❌ 測試失敗\n\n錯誤訊息:\n${error.message}\n\n可能原因:\n1. API Key 錯誤\n2. 模型名稱錯誤\n3. 網路連接問題\n4. API 權限不足`;
+            } finally {
+                testBtn.disabled = false;
+                testBtn.textContent = '🧪 測試 API 連接';
+            }
+        }
+        
+        function updateTTSConfig() {
+            const mode = document.getElementById('ttsMode').value;
+            document.getElementById('openaiTTSGroup').style.display = mode === 'openai' ? 'block' : 'none';
+        }
+        
+        function saveTTSConfig() {
+            appState.ttsConfig = {
+                mode: document.getElementById('ttsMode').value,
+                voice: document.getElementById('ttsVoice').value,
+                apiKey: document.getElementById('ttsApiKey').value
+            };
+            saveToStorage();
+            showStatus('✅ TTS 設定已儲存', 'success');
+        }
+        
+        function changeFontSize() {
+            const size = document.getElementById('fontSize').value;
+            document.body.className = `font-${size}`;
+            appState.generalSettings.fontSize = size;
+            saveToStorage();
+        }
+        
+        function saveGeneralSettings() {
+            changeFontSize();
+            showStatus('✅ 設定已儲存', 'success');
+        }
+        
+        function showCharacterModal(characterId = null) {
+            const modal = document.getElementById('characterModal');
+            const title = document.getElementById('characterModalTitle');
+            
+            if (characterId) {
+                const char = appState.characters.find(c => c.id === characterId);
+                if (char) {
+                    title.textContent = '編輯角色';
+                    document.getElementById('editCharacterId').value = char.id;
+                    document.getElementById('charName').value = char.name;
+                    document.getElementById('charBackground').value = char.background;
+                    document.getElementById('charPersonality').value = char.personality;
+                    document.getElementById('charStyle').value = char.style;
+                    renderExamples(char.examples);
+                }
+            } else {
+                title.textContent = '新增角色';
+                document.getElementById('editCharacterId').value = '';
+                document.getElementById('charName').value = '';
+                document.getElementById('charBackground').value = '';
+                document.getElementById('charPersonality').value = '';
+                document.getElementById('charStyle').value = '';
+                renderExamples([]);
+            }
+            
+            modal.classList.add('active');
+        }
+        
+        function addExample() {
+            const container = document.getElementById('examplesContainer');
+            const index = container.children.length;
+            
+            const div = document.createElement('div');
+            div.className = 'example-dialogue';
+            
+            const header = document.createElement('div');
+            header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;';
+            
+            const titleSpan = document.createElement('strong');
+            titleSpan.textContent = `範例 ${index + 1}`;
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn btn-small btn-danger';
+            deleteBtn.textContent = '刪除';
+            deleteBtn.addEventListener('click', function() {
+                div.remove();
+            });
+            
+            header.appendChild(titleSpan);
+            header.appendChild(deleteBtn);
+            
+            const userGroup = document.createElement('div');
+            userGroup.className = 'form-group';
+            userGroup.innerHTML = '<label>User 說：</label><textarea class="example-user" placeholder="使用者的訊息..."></textarea>';
+            
+            const assistantGroup = document.createElement('div');
+            assistantGroup.className = 'form-group';
+            assistantGroup.innerHTML = '<label>Assistant 回應：</label><textarea class="example-assistant" placeholder="AI 的回應..."></textarea>';
+            
+            div.appendChild(header);
+            div.appendChild(userGroup);
+            div.appendChild(assistantGroup);
+            container.appendChild(div);
+        }
+        
+        function renderExamples(examples) {
+            const container = document.getElementById('examplesContainer');
+            container.innerHTML = '';
+            
+            examples.forEach((ex, i) => {
+                const div = document.createElement('div');
+                div.className = 'example-dialogue';
+                
+                const header = document.createElement('div');
+                header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;';
+                
+                const titleSpan = document.createElement('strong');
+                titleSpan.textContent = `範例 ${i + 1}`;
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn btn-small btn-danger';
+                deleteBtn.textContent = '刪除';
+                deleteBtn.addEventListener('click', function() {
+                    div.remove();
+                });
+                
+                header.appendChild(titleSpan);
+                header.appendChild(deleteBtn);
+                
+                const userGroup = document.createElement('div');
+                userGroup.className = 'form-group';
+                const userLabel = document.createElement('label');
+                userLabel.textContent = 'User 說：';
+                const userTextarea = document.createElement('textarea');
+                userTextarea.className = 'example-user';
+                userTextarea.value = ex.user;
+                userGroup.appendChild(userLabel);
+                userGroup.appendChild(userTextarea);
+                
+                const assistantGroup = document.createElement('div');
+                assistantGroup.className = 'form-group';
+                const assistantLabel = document.createElement('label');
+                assistantLabel.textContent = 'Assistant 回應：';
+                const assistantTextarea = document.createElement('textarea');
+                assistantTextarea.className = 'example-assistant';
+                assistantTextarea.value = ex.assistant;
+                assistantGroup.appendChild(assistantLabel);
+                assistantGroup.appendChild(assistantTextarea);
+                
+                div.appendChild(header);
+                div.appendChild(userGroup);
+                div.appendChild(assistantGroup);
+                container.appendChild(div);
+            });
+        }
+        
+        function saveCharacter() {
+            const examples = [];
+            document.querySelectorAll('.example-dialogue').forEach(ex => {
+                const user = ex.querySelector('.example-user').value;
+                const assistant = ex.querySelector('.example-assistant').value;
+                if (user && assistant) {
+                    examples.push({ user, assistant });
+                }
+            });
+            
+            const character = {
+                id: document.getElementById('editCharacterId').value || Date.now().toString(),
+                name: document.getElementById('charName').value,
+                background: document.getElementById('charBackground').value,
+                personality: document.getElementById('charPersonality').value,
+                style: document.getElementById('charStyle').value,
+                examples: examples
+            };
+            
+            if (!character.name) {
+                alert('請輸入角色名稱');
+                return;
+            }
+            
+            const existingIndex = appState.characters.findIndex(c => c.id === character.id);
+            if (existingIndex >= 0) {
+                appState.characters[existingIndex] = character;
+            } else {
+                appState.characters.push(character);
+            }
+            
+            saveToStorage();
+            renderCharactersList();
+            updateNewChatSelects();
+            closeModal('characterModal');
+            showStatus('✅ 角色已儲存', 'success');
+        }
+        
+        function deleteCharacter(id) {
+            if (confirm('確定要刪除這個角色嗎？')) {
+                appState.characters = appState.characters.filter(c => c.id !== id);
+                saveToStorage();
+                renderCharactersList();
+                updateNewChatSelects();
+                showStatus('✅ 角色已刪除', 'success');
+            }
+        }
+        
+        function renderCharactersList() {
+            const list = document.getElementById('charactersList');
+            if (appState.characters.length === 0) {
+                list.innerHTML = '<p style="color: var(--text-medium); padding: 20px; text-align: center;">尚未建立任何角色</p>';
+                return;
+            }
+            
+            list.innerHTML = '';
+            appState.characters.forEach(char => {
+                const div = document.createElement('div');
+                div.className = 'item';
+                
+                const header = document.createElement('div');
+                header.className = 'item-header';
+                
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'item-title';
+                titleDiv.textContent = char.name;
+                
+                const actions = document.createElement('div');
+                actions.className = 'item-actions';
+                
+                const editBtn = document.createElement('button');
+                editBtn.className = 'btn btn-small';
+                editBtn.textContent = '編輯';
+                editBtn.addEventListener('click', () => showCharacterModal(char.id));
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn btn-small btn-danger';
+                deleteBtn.textContent = '刪除';
+                deleteBtn.addEventListener('click', () => deleteCharacter(char.id));
+                
+                actions.appendChild(editBtn);
+                actions.appendChild(deleteBtn);
+                header.appendChild(titleDiv);
+                header.appendChild(actions);
+                
+                const content = document.createElement('div');
+                content.className = 'item-content';
+                content.innerHTML = `${char.background ? char.background.substring(0, 100) + '...' : '無背景描述'}<br><small>${char.examples.length} 組範例對話</small>`;
+                
+                div.appendChild(header);
+                div.appendChild(content);
+                list.appendChild(div);
+            });
+        }
+        
+        function showUserModal(userId = null) {
+            const modal = document.getElementById('userModal');
+            const title = document.getElementById('userModalTitle');
+            
+            if (userId) {
+                const user = appState.users.find(u => u.id === userId);
+                if (user) {
+                    title.textContent = '編輯使用者資訊';
+                    document.getElementById('editUserId').value = user.id;
+                    document.getElementById('userName').value = user.name;
+                    document.getElementById('userBackground').value = user.background;
+                }
+            } else {
+                title.textContent = '新增使用者資訊';
+                document.getElementById('editUserId').value = '';
+                document.getElementById('userName').value = '';
+                document.getElementById('userBackground').value = '';
+            }
+            
+            modal.classList.add('active');
+        }
+        
+        function saveUser() {
+            const user = {
+                id: document.getElementById('editUserId').value || Date.now().toString(),
+                name: document.getElementById('userName').value,
+                background: document.getElementById('userBackground').value
+            };
+            
+            if (!user.name) {
+                alert('請輸入資訊名稱');
+                return;
+            }
+            
+            const existingIndex = appState.users.findIndex(u => u.id === user.id);
+            if (existingIndex >= 0) {
+                appState.users[existingIndex] = user;
+            } else {
+                appState.users.push(user);
+            }
+            
+            saveToStorage();
+            renderUsersList();
+            updateNewChatSelects();
+            closeModal('userModal');
+            showStatus('✅ 使用者資訊已儲存', 'success');
+        }
+        
+        function deleteUser(id) {
+            if (confirm('確定要刪除這個使用者資訊嗎？')) {
+                appState.users = appState.users.filter(u => u.id !== id);
+                saveToStorage();
+                renderUsersList();
+                updateNewChatSelects();
+                showStatus('✅ 使用者資訊已刪除', 'success');
+            }
+        }
+        
+        function renderUsersList() {
+            const list = document.getElementById('usersList');
+            if (appState.users.length === 0) {
+                list.innerHTML = '<p style="color: var(--text-medium); padding: 20px; text-align: center;">尚未建立任何使用者資訊</p>';
+                return;
+            }
+            
+            list.innerHTML = '';
+            appState.users.forEach(user => {
+                const div = document.createElement('div');
+                div.className = 'item';
+                
+                const header = document.createElement('div');
+                header.className = 'item-header';
+                
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'item-title';
+                titleDiv.textContent = user.name;
+                
+                const actions = document.createElement('div');
+                actions.className = 'item-actions';
+                
+                const editBtn = document.createElement('button');
+                editBtn.className = 'btn btn-small';
+                editBtn.textContent = '編輯';
+                editBtn.addEventListener('click', () => showUserModal(user.id));
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn btn-small btn-danger';
+                deleteBtn.textContent = '刪除';
+                deleteBtn.addEventListener('click', () => deleteUser(user.id));
+                
+                actions.appendChild(editBtn);
+                actions.appendChild(deleteBtn);
+                header.appendChild(titleDiv);
+                header.appendChild(actions);
+                
+                const content = document.createElement('div');
+                content.className = 'item-content';
+                content.textContent = user.background ? user.background.substring(0, 150) + '...' : '無背景描述';
+                
+                div.appendChild(header);
+                div.appendChild(content);
+                list.appendChild(div);
+            });
+        }
+        
+        function updateNewChatSelects() {
+            const charSelect = document.getElementById('newChatCharacter');
+            const userSelect = document.getElementById('newChatUser');
+            
+            charSelect.innerHTML = '<option value="">-- 請選擇角色 --</option>';
+            appState.characters.forEach(char => {
+                const option = document.createElement('option');
+                option.value = char.id;
+                option.textContent = char.name;
+                charSelect.appendChild(option);
+            });
+            
+            userSelect.innerHTML = '<option value="">-- 請選擇使用者資訊 --</option>';
+            appState.users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = user.name;
+                userSelect.appendChild(option);
+            });
+        }
+        
+        function showNewChatModal() {
+            updateNewChatSelects();
+            document.getElementById('newChatTitle').value = '';
+            document.getElementById('newChatModal').classList.add('active');
+        }
+        
+        function createNewChat() {
+            const charId = document.getElementById('newChatCharacter').value;
+            const userId = document.getElementById('newChatUser').value;
+            const title = document.getElementById('newChatTitle').value;
+            
+            if (!charId || !userId) {
+                alert('請選擇角色和使用者資訊');
+                return;
+            }
+            
+            const character = appState.characters.find(c => c.id === charId);
+            const user = appState.users.find(u => u.id === userId);
+            
+            const chat = {
+                id: Date.now().toString(),
+                title: title || `${character.name} × ${user.name}`,
+                characterId: charId,
+                userId: userId,
+                messages: [],
+                createdAt: new Date().toISOString()
+            };
+            
+            appState.chats.unshift(chat);
+            appState.currentChatId = chat.id;
+            saveToStorage();
+            
+            renderChatList();
+            loadChat(chat.id);
+            closeModal('newChatModal');
+            switchMainTab('chat');
+        }
+        
+        function loadChat(chatId) {
+            const chat = appState.chats.find(c => c.id === chatId);
+            if (!chat) return;
+            
+            appState.currentChatId = chatId;
+            const character = appState.characters.find(c => c.id === chat.characterId);
+            const user = appState.users.find(u => u.id === chat.userId);
+            
+            document.getElementById('currentChatTitle').textContent = chat.title;
+            document.getElementById('currentChatMeta').textContent = `角色：${character?.name || '未知'} | 使用者：${user?.name || '未知'}`;
+            
+            const container = document.getElementById('chatContainer');
+            container.innerHTML = '';
+            
+            chat.messages.forEach(msg => {
+                addMessageToUI(msg.content, msg.role, msg.id);
+            });
+            
+            document.getElementById('messageInput').disabled = false;
+            document.getElementById('sendButton').disabled = false;
+            
+            switchMainTab('chat');
+            renderChatList();
+        }
+        
+        function renderChatList() {
+            const list = document.getElementById('chatList');
+            
+            if (appState.chats.length === 0) {
+                list.innerHTML = '<p style="color: var(--text-medium); padding: 20px; text-align: center; font-size: 13px;">尚未開始任何對話</p>';
+                return;
+            }
+            
+            list.innerHTML = '';
+            appState.chats.forEach(chat => {
+                const character = appState.characters.find(c => c.id === chat.characterId);
+                const user = appState.users.find(u => u.id === chat.userId);
+                
+                const div = document.createElement('div');
+                div.className = 'chat-item' + (chat.id === appState.currentChatId ? ' active' : '');
+                div.addEventListener('click', () => loadChat(chat.id));
+                div.innerHTML = `
+                    <div class="chat-item-title">${chat.title}</div>
+                    <div class="chat-item-meta">${character?.name || '?'} × ${user?.name || '?'} · ${chat.messages.length} 則</div>
+                `;
+                list.appendChild(div);
+            });
+        }
+        
+        function editChatTitle() {
+            const chat = appState.chats.find(c => c.id === appState.currentChatId);
+            if (!chat) return;
+            
+            const newTitle = prompt('輸入新標題：', chat.title);
+            if (newTitle) {
+                chat.title = newTitle;
+                document.getElementById('currentChatTitle').textContent = newTitle;
+                saveToStorage();
+                renderChatList();
+            }
+        }
+        
+        function deleteCurrentChat() {
+            if (!confirm('確定要刪除這個對話嗎？')) return;
+            
+            appState.chats = appState.chats.filter(c => c.id !== appState.currentChatId);
+            appState.currentChatId = null;
+            saveToStorage();
+            
+            renderChatList();
+            switchMainTab('welcome');
+        }
+        
+        function exportChat() {
+            const chat = appState.chats.find(c => c.id === appState.currentChatId);
+            if (!chat) return;
+            
+            const dataStr = JSON.stringify(chat, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `chat_${chat.title}_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function handleImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const chat = JSON.parse(e.target.result);
+                    chat.id = Date.now().toString();
+                    appState.chats.unshift(chat);
+                    saveToStorage();
+                    renderChatList();
+                    showStatus('✅ 對話已匯入', 'success');
+                } catch (err) {
+                    alert('匯入失敗：檔案格式錯誤');
+                }
+            };
+            reader.readAsText(file);
+        }
+        
+        function addMessageToUI(content, role, id) {
+            const container = document.getElementById('chatContainer');
+            const group = document.createElement('div');
+            group.className = `message-group ${role}`;
+            group.dataset.messageId = id;
+            
+            const message = document.createElement('div');
+            message.className = `message ${role}`;
+            message.textContent = content;
+            
+            group.appendChild(message);
+            
+            if (role === 'assistant' || role === 'user') {
+                const actions = document.createElement('div');
+                actions.className = 'message-actions';
+                
+                if (role === 'assistant') {
+                    const speakBtn = document.createElement('button');
+                    speakBtn.textContent = '🔊 朗讀';
+                    speakBtn.addEventListener('click', () => speakMessage(id));
+                    actions.appendChild(speakBtn);
+                }
+                
+                if (role === 'user') {
+                    const editBtn = document.createElement('button');
+                    editBtn.textContent = '✏️ 編輯';
+                    editBtn.addEventListener('click', () => editMessage(id));
+                    actions.appendChild(editBtn);
+                }
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = '🗑️ 刪除';
+                deleteBtn.addEventListener('click', () => deleteMessage(id));
+                actions.appendChild(deleteBtn);
+                
+                message.appendChild(actions);
+            }
+            
+            container.appendChild(group);
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        async function editMessage(messageId) {
+            const chat = appState.chats.find(c => c.id === appState.currentChatId);
+            if (!chat) return;
+            
+            const msgIndex = chat.messages.findIndex(m => m.id === messageId);
+            if (msgIndex === -1) return;
+            
+            const msg = chat.messages[msgIndex];
+            
+            if (msg.role !== 'user') {
+                alert('只能編輯使用者訊息');
+                return;
+            }
+            
+            const newContent = prompt('編輯訊息：', msg.content);
+            
+            if (newContent !== null && newContent !== msg.content) {
+                msg.content = newContent;
+                chat.messages = chat.messages.slice(0, msgIndex + 1);
+                
+                saveToStorage();
+                loadChat(appState.currentChatId);
+                
+                showStatus('⏳ 重新生成回應中...', 'info');
+                
+                try {
+                    const response = await callAPI(chat);
+                    const assistantMsgId = Date.now().toString();
+                    chat.messages.push({ id: assistantMsgId, role: 'assistant', content: response });
+                    addMessageToUI(response, 'assistant', assistantMsgId);
+                    
+                    trimContextIfNeeded(chat);
+                    saveToStorage();
+                    showStatus('✅ 已重新生成回應', 'success');
+                } catch (error) {
+                    console.error('編輯訊息錯誤:', error);
+                    showStatus(`❌ 錯誤：${error.message}`, 'error');
+                }
+            }
+        }
+        
+        function deleteMessage(messageId) {
+            if (!confirm('確定要刪除這則訊息嗎？')) return;
+            
+            const chat = appState.chats.find(c => c.id === appState.currentChatId);
+            if (!chat) return;
+            
+            chat.messages = chat.messages.filter(m => m.id !== messageId);
+            saveToStorage();
+            loadChat(appState.currentChatId);
+        }
+        
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            const chat = appState.chats.find(c => c.id === appState.currentChatId);
+            if (!chat) return;
+            
+            const msgId = Date.now().toString();
+            chat.messages.push({ id: msgId, role: 'user', content: message });
+            addMessageToUI(message, 'user', msgId);
+            
+            input.value = '';
+            input.disabled = true;
+            document.getElementById('sendButton').disabled = true;
+            showStatus('⏳ AI 正在思考...', 'info');
+            
+            try {
+                const response = await callAPI(chat);
+                const assistantMsgId = (Date.now() + 1).toString();
+                chat.messages.push({ id: assistantMsgId, role: 'assistant', content: response });
+                addMessageToUI(response, 'assistant', assistantMsgId);
+                
+                trimContextIfNeeded(chat);
+                
+                saveToStorage();
+                showStatus('✅ 回應完成', 'success');
+            } catch (error) {
+                console.error('發送訊息錯誤:', error);
+                showStatus(`❌ 錯誤：${error.message}`, 'error');
+                
+                // 顯示詳細錯誤給使用者
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'message system';
+                errorDiv.textContent = `發生錯誤：${error.message}\n\n請檢查：\n1. API Key 是否正確\n2. 模型名稱是否正確\n3. 網路連接是否正常\n\n或點擊「設定」→「API 設定」→「測試 API 連接」來診斷問題`;
+                document.getElementById('chatContainer').appendChild(errorDiv);
+            } finally {
+                input.disabled = false;
+                document.getElementById('sendButton').disabled = false;
+                input.focus();
+            }
+        }
+        
+        async function callAPI(chat) {
+            const character = appState.characters.find(c => c.id === chat.characterId);
+            const user = appState.users.find(u => u.id === chat.userId);
+            
+            if (!character || !user) {
+                throw new Error('角色或使用者資訊遺失');
+            }
+            
+            let systemPrompt = '';
+            if (character.name) systemPrompt += `你是 ${character.name}。\n\n`;
+            if (character.background) systemPrompt += `背景：${character.background}\n\n`;
+            if (character.personality) systemPrompt += `個性：${character.personality}\n\n`;
+            if (character.style) systemPrompt += `說話風格：${character.style}\n\n`;
+            if (user.background) systemPrompt += `關於使用者：${user.background}\n\n`;
+            
+            const messages = [];
+            
+            character.examples.forEach(ex => {
+                messages.push({ role: 'user', content: ex.user });
+                messages.push({ role: 'assistant', content: ex.assistant });
+            });
+            
+            chat.messages.forEach(msg => {
+                messages.push({ role: msg.role, content: msg.content });
+            });
+            
+            const config = appState.apiConfig;
+            let endpoint, headers, body;
+            
+            switch(config.provider) {
+                case 'openai':
+                case 'openrouter':
+                    endpoint = config.provider === 'openai' 
+                        ? 'https://api.openai.com/v1/chat/completions'
+                        : 'https://openrouter.ai/api/v1/chat/completions';
+                    
+                    headers = {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${config.apiKey}`
+                    };
+                    
+                    body = {
+                        model: config.model,
+                        messages: systemPrompt 
+                            ? [{ role: 'system', content: systemPrompt }, ...messages]
+                            : messages,
+                        temperature: config.temperature,
+                        max_tokens: config.maxTokens,
+                        top_p: config.topP
+                    };
+                    break;
+                    
+                case 'anthropic':
+                    endpoint = 'https://api.anthropic.com/v1/messages';
+                    headers = {
+                        'Content-Type': 'application/json',
+                        'x-api-key': config.apiKey,
+                        'anthropic-version': '2023-06-01'
+                    };
+                    
+                    body = {
+                        model: config.model,
+                        max_tokens: config.maxTokens,
+                        temperature: config.temperature,
+                        top_p: config.topP,
+                        messages: messages
+                    };
+                    
+                    if (systemPrompt) body.system = systemPrompt;
+                    break;
+                    
+                case 'google':
+                    endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${config.apiKey}`;
+                    headers = { 'Content-Type': 'application/json' };
+                    
+                    const googleMessages = messages.map(m => ({
+                        role: m.role === 'assistant' ? 'model' : 'user',
+                        parts: [{ text: m.content }]
+                    }));
+                    
+                    body = {
+                        contents: googleMessages,
+                        generationConfig: {
+                            temperature: config.temperature,
+                            maxOutputTokens: config.maxTokens,
+                            topP: config.topP
+                        }
+                    };
+                    
+                    if (systemPrompt) {
+                        body.systemInstruction = { parts: [{ text: systemPrompt }] };
+                    }
+                    break;
+                    
+                case 'custom':
+                    endpoint = config.endpoint;
+                    headers = {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${config.apiKey}`
+                    };
+                    body = {
+                        model: config.model,
+                        messages: systemPrompt 
+                            ? [{ role: 'system', content: systemPrompt }, ...messages]
+                            : messages,
+                        temperature: config.temperature,
+                        max_tokens: config.maxTokens
+                    };
+                    break;
+            }
+            
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(body)
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                let errorData;
+                try {
+                    errorData = JSON.parse(errorText);
+                } catch {
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                throw new Error(errorData.error?.message || JSON.stringify(errorData));
+            }
+            
+            const data = await response.json();
+            
+            switch(config.provider) {
+                case 'openai':
+                case 'openrouter':
+                case 'custom':
+                    return data.choices[0].message.content;
+                case 'anthropic':
+                    return data.content[0].text;
+                case 'google':
+                    return data.candidates[0].content.parts[0].text;
+            }
+        }
+        
+        function trimContextIfNeeded(chat) {
+            const limit = appState.apiConfig.contextLimit;
+            let totalTokens = estimateTokens(chat.messages);
+            
+            while (totalTokens > limit && chat.messages.length > 10) {
+                chat.messages.splice(0, 2);
+                totalTokens = estimateTokens(chat.messages);
+            }
+        }
+        
+        function estimateTokens(messages) {
+            return messages.reduce((sum, msg) => sum + Math.ceil(msg.content.length / 3), 0);
+        }
+        
+        async function speakMessage(messageId) {
+            const chat = appState.chats.find(c => c.id === appState.currentChatId);
+            if (!chat) return;
+            
+            const msg = chat.messages.find(m => m.id === messageId);
+            if (!msg) return;
+            
+            if (appState.ttsConfig.mode === 'system') {
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(msg.content);
+                    utterance.lang = 'zh-TW';
+                    window.speechSynthesis.speak(utterance);
+                } else {
+                    alert('您的瀏覽器不支援 TTS 功能');
+                }
+            } else if (appState.ttsConfig.mode === 'openai') {
+                try {
+                    showStatus('🔊 正在生成語音...', 'info');
+                    
+                    const ttsKey = appState.ttsConfig.apiKey || appState.apiConfig.apiKey;
+                    
+                    const response = await fetch('https://api.openai.com/v1/audio/speech', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${ttsKey}`
+                        },
+                        body: JSON.stringify({
+                            model: 'tts-1',
+                            input: msg.content,
+                            voice: appState.ttsConfig.voice
+                        })
+                    });
+                    
+                    if (!response.ok) throw new Error('TTS 請求失敗');
+                    
+                    const audioBlob = await response.blob();
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const audio = new Audio(audioUrl);
+                    audio.play();
+                    showStatus('✅ 播放中', 'success');
+                } catch (error) {
+                    showStatus(`❌ TTS 錯誤：${error.message}`, 'error');
+                }
+            }
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+        
+        function showStatus(message, type = 'info') {
+            const bar = document.getElementById('statusBar');
+            bar.textContent = message;
+            bar.className = `status-bar ${type}`;
+            
+            if (type === 'success' || type === 'error') {
+                setTimeout(() => {
+                    bar.className = 'status-bar info';
+                    bar.textContent = '準備就緒';
+                }, 3000);
+            }
+        }
+        
+        function clearAllData() {
+            if (!confirm('確定要清除所有資料嗎？這將刪除所有對話、角色和設定！')) return;
+            if (!confirm('真的確定嗎？此操作無法復原！')) return;
+            
+            localStorage.clear();
+            location.reload();
+        }
+    </script>
+</body>
+</html>
